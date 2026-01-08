@@ -81,8 +81,8 @@ async fn main() -> Result<()> {
         shutdown_tx.send(()).ok();
     });
 
-    // Create 30-second polling interval
-    let mut interval = tokio::time::interval(Duration::from_secs(30));
+    // Create 10-second polling interval
+    let mut interval = tokio::time::interval(Duration::from_secs(10));
     let mut scan_count = 0u32;
 
     loop {
@@ -93,8 +93,13 @@ async fn main() -> Result<()> {
 
                 // Run scan with error handling
                 match run_single_scan(&client, &scanner).await {
-                    Ok(_) => {
-                        // Success - continue to next iteration
+                    Ok(opportunities_found) => {
+                        if opportunities_found > 0 {
+                            println!("\n[{}] Arbitrage opportunity found! Stopping scanner.",
+                                Utc::now().format("%Y-%m-%dT%H:%M:%SZ"));
+                            break;
+                        }
+                        // Otherwise continue to next iteration
                     }
                     Err(e) => {
                         println!("[{}] ERROR (Scan #{}): {}",
@@ -102,7 +107,7 @@ async fn main() -> Result<()> {
                             scan_count,
                             e
                         );
-                        println!("Retrying in 30 seconds...\n");
+                        println!("Retrying in 10 seconds...\n");
                     }
                 }
             }
