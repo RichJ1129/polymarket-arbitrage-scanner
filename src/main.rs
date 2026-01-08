@@ -1,4 +1,7 @@
 use anyhow::Result;
+use chrono::Utc;
+use std::time::Duration;
+use tokio::time::Instant;
 
 // Declare modules (each module corresponds to a file in src/)
 mod client;
@@ -9,21 +12,19 @@ mod scanner;
 use client::PolymarketClient;
 use scanner::ArbitrageScanner;
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    println!("Polymarket Arbitrage Scanner");
-    println!("============================\n");
-
-    // Create API client
-    let client = PolymarketClient::new();
+/// Run a single scan iteration
+async fn run_single_scan(
+    client: &PolymarketClient,
+    scanner: &ArbitrageScanner,
+) -> Result<usize> {
+    let start = Instant::now();
 
     // Fetch all active markets
     println!("Fetching all active markets from Polymarket...\n");
     let markets = client.fetch_all_active_markets().await?;
     println!("Found {} active markets\n", markets.len());
 
-    // Create scanner and scan for opportunities
-    let scanner = ArbitrageScanner::default();
+    // Scan for opportunities
     let opportunities = scanner.scan(&markets);
 
     // Display results
@@ -37,6 +38,63 @@ async fn main() -> Result<()> {
 
         for (i, opp) in opportunities.iter().enumerate() {
             opp.print(i + 1);
+        }
+    }
+
+    let elapsed = start.elapsed();
+    println!("[{}] Scan completed ({:.1} seconds)", Utc::now().format("%Y-%m-%dT%H:%M:%SZ"), elapsed.as_secs_f64());
+
+    Ok(opportunities.len())
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    println!("Polymarket Arbitrage Scanner");
+    println!("============================\n");
+
+    // Create API client and scanner (reused across iterations)
+    let client = PolymarketClient::new();
+    let scanner = ArbitrageScanner::default();
+
+    // Setup shutdown signal handler
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::broadcast::channel::<()>(1);
+
+    // Spawn signal handler task
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.ok();
+        shutdown_tx.send(()).ok();
+    });
+
+    // Create 30-second polling interval
+    let mut interval = tokio::time::interval(Duration::from_secs(30));
+    let mut scan_count = 0u32;
+
+    loop {
+        tokio::select! {
+            _ = interval.tick() => {
+                scan_count += 1;
+                println!("[{}] Scan #{} starting...", Utc::now().format("%Y-%m-%dT%H:%M:%SZ"), scan_count);
+
+                // Run scan with error handling
+                match run_single_scan(&client, &scanner).await {
+                    Ok(_) => {
+                        // Success - continue to next iteration
+                    }
+                    Err(e) => {
+                        println!("[{}] ERROR (Scan #{}): {}",
+                            Utc::now().format("%Y-%m-%dT%H:%M:%SZ"),
+                            scan_count,
+                            e
+                        );
+                        println!("Retrying in 30 seconds...\n");
+                    }
+                }
+            }
+            _ = shutdown_rx.recv() => {
+                println!("\n[{}] Shutdown signal received, exiting...", Utc::now().format("%Y-%m-%dT%H:%M:%SZ"));
+                println!("Goodbye!");
+                break;
+            }
         }
     }
 
