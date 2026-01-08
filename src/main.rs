@@ -113,7 +113,7 @@ async fn analyze_wallet(wallet_address: &str) -> Result<()> {
 }
 
 /// Auto-scan mode: Find and analyze active wallets for insider patterns
-async fn auto_scan_for_insiders(sample_size: usize) -> Result<()> {
+async fn auto_scan_for_insiders(sample_size: usize, max_wallets: usize) -> Result<()> {
     println!("Polymarket Insider Scanner");
     println!("==========================\n");
     println!("Automatically finding and analyzing wallets for insider patterns...\n");
@@ -121,7 +121,7 @@ async fn auto_scan_for_insiders(sample_size: usize) -> Result<()> {
     let scanner = WalletScanner::new();
 
     // Step 1: Find active wallets
-    let wallets = scanner.find_active_wallets(sample_size).await?;
+    let wallets = scanner.find_active_wallets(sample_size, max_wallets).await?;
 
     if wallets.is_empty() {
         println!("No active wallets found.");
@@ -146,7 +146,12 @@ async fn main() -> Result<()> {
         } else {
             5000
         };
-        return auto_scan_for_insiders(sample_size).await;
+        let max_wallets = if args.len() > 3 {
+            args[3].parse().unwrap_or(30)
+        } else {
+            30
+        };
+        return auto_scan_for_insiders(sample_size, max_wallets).await;
     }
 
     // If wallet address provided, run wallet analysis mode
@@ -159,9 +164,10 @@ async fn main() -> Result<()> {
     println!("Polymarket Analysis Tools");
     println!("=========================\n");
     println!("Usage:");
-    println!("  cargo run --scan [sample_size]    - Auto-scan for insider wallets (default: 5000 trades)");
-    println!("  cargo run <wallet_address>        - Analyze a specific wallet");
-    println!("  cargo run                          - Run arbitrage scanner\n");
+    println!("  cargo run --scan [sample_size] [max_wallets]  - Auto-scan for insider wallets");
+    println!("                                                   (defaults: 5000 trades, 30 wallets)");
+    println!("  cargo run <wallet_address>                     - Analyze a specific wallet");
+    println!("  cargo run                                      - Run arbitrage scanner\n");
     println!("Running arbitrage scanner...\n");
 
     // Create API client and scanner (reused across iterations)

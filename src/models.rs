@@ -14,8 +14,10 @@ pub struct Market {
     #[serde(default)]
     pub condition_id: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     pub closed: Option<bool>,
     #[serde(default)]
+    #[allow(dead_code)]
     pub outcomes: Option<String>,
 }
 
@@ -91,7 +93,9 @@ pub struct Trade {
     pub condition_id: String,
     pub size: f64,
     pub price: f64,
+    #[allow(dead_code)]
     pub timestamp: i64,
+    #[allow(dead_code)]
     pub outcome: String,
     pub outcome_index: usize,
     #[serde(default)]
@@ -106,17 +110,24 @@ pub struct Position {
     pub net_shares: f64,
     pub avg_price: f64,
     pub total_invested: f64,
+    #[allow(dead_code)]
     pub market_title: String,
 }
 
 /// Represents a resolved position outcome
 #[derive(Debug, Clone)]
 pub struct ResolvedPosition {
+    #[allow(dead_code)]
     pub condition_id: String,
+    #[allow(dead_code)]
     pub market_title: String,
+    #[allow(dead_code)]
     pub bet_outcome_index: usize,
+    #[allow(dead_code)]
     pub winning_outcome_index: usize,
+    #[allow(dead_code)]
     pub net_shares: f64,
+    #[allow(dead_code)]
     pub avg_price: f64,
     pub total_invested: f64,
     pub payout: f64,

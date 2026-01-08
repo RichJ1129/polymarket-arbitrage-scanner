@@ -1,5 +1,4 @@
 use crate::client::PolymarketClient;
-use crate::models::Trade;
 use crate::wallet_analyzer::WalletAnalyzer;
 use anyhow::Result;
 use std::collections::HashMap;
@@ -19,7 +18,7 @@ impl WalletScanner {
     }
 
     /// Scans recent trades to find wallets with high activity
-    pub async fn find_active_wallets(&self, sample_size: usize) -> Result<Vec<String>> {
+    pub async fn find_active_wallets(&self, sample_size: usize, max_wallets: usize) -> Result<Vec<String>> {
         println!("🔍 Scanning recent trades to find active wallets...");
         println!("  Fetching {} recent trades...", sample_size);
 
@@ -44,7 +43,7 @@ impl WalletScanner {
         let top_wallets: Vec<String> = wallet_counts
             .into_iter()
             .filter(|(_, count)| *count >= 3)
-            .take(30)
+            .take(max_wallets)
             .map(|(wallet, count)| {
                 println!("  {} ({} trades)", wallet, count);
                 wallet

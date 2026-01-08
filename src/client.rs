@@ -241,7 +241,7 @@ impl PolymarketClient {
     }
 
     /// Fetches a single page of markets with optional closed filter
-    async fn fetch_markets_page(&self, offset: usize, limit: usize, closed: bool) -> Result<Vec<Market>> {
+    async fn fetch_markets_page(&self, offset: usize, limit: usize, _closed: bool) -> Result<Vec<Market>> {
         fetch_resolved_markets_page(&self.client, offset, limit).await
     }
 }
