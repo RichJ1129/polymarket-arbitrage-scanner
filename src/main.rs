@@ -7,10 +7,14 @@ use tokio::time::Instant;
 mod client;
 mod models;
 mod scanner;
+mod wallet_analyzer;
+mod wallet_scanner;
 
 // Import items from our modules
 use client::PolymarketClient;
 use scanner::ArbitrageScanner;
+use wallet_analyzer::WalletAnalyzer;
+use wallet_scanner::WalletScanner;
 
 /// Run a single scan iteration
 async fn run_single_scan(
@@ -63,10 +67,102 @@ async fn run_single_scan(
     Ok(opportunities.len())
 }
 
+/// Analyzes a wallet's trading performance
+async fn analyze_wallet(wallet_address: &str) -> Result<()> {
+    println!("Polymarket Wallet Analyzer");
+    println!("==========================\n");
+    println!("Analyzing wallet: {}\n", wallet_address);
+
+    let client = PolymarketClient::new();
+    let analyzer = WalletAnalyzer::new();
+
+    // Fetch wallet trades
+    println!("📊 Fetching trade history...");
+    let fetch_start = Instant::now();
+    let trades = client.fetch_wallet_trades(wallet_address).await?;
+    let fetch_duration = fetch_start.elapsed();
+    println!("✓ Fetched {} trades in {:.2}s\n", trades.len(), fetch_duration.as_secs_f64());
+
+    if trades.is_empty() {
+        println!("No trades found for this wallet.");
+        return Ok(());
+    }
+
+    // Fetch resolved markets
+    println!("🔍 Fetching resolved markets...");
+    let markets_start = Instant::now();
+    let resolved_markets = client.fetch_resolved_markets().await?;
+    let markets_duration = markets_start.elapsed();
+    println!(
+        "✓ Fetched {} resolved markets in {:.2}s\n",
+        resolved_markets.len(),
+        markets_duration.as_secs_f64()
+    );
+
+    // Analyze performance
+    println!("📈 Analyzing performance...");
+    let analysis_start = Instant::now();
+    let performance = analyzer.analyze(&trades, &resolved_markets);
+    let analysis_duration = analysis_start.elapsed();
+    println!("✓ Analysis completed in {:.3}s", analysis_duration.as_secs_f64());
+
+    // Print results
+    analyzer.print_performance(&performance);
+
+    Ok(())
+}
+
+/// Auto-scan mode: Find and analyze active wallets for insider patterns
+async fn auto_scan_for_insiders(sample_size: usize) -> Result<()> {
+    println!("Polymarket Insider Scanner");
+    println!("==========================\n");
+    println!("Automatically finding and analyzing wallets for insider patterns...\n");
+
+    let scanner = WalletScanner::new();
+
+    // Step 1: Find active wallets
+    let wallets = scanner.find_active_wallets(sample_size).await?;
+
+    if wallets.is_empty() {
+        println!("No active wallets found.");
+        return Ok(());
+    }
+
+    // Step 2: Analyze them for insider patterns
+    scanner.scan_for_insiders(&wallets).await?;
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    println!("Polymarket Arbitrage Scanner");
-    println!("============================\n");
+    // Check for command-line arguments
+    let args: Vec<String> = std::env::args().collect();
+
+    // Check for --scan flag
+    if args.len() > 1 && args[1] == "--scan" {
+        let sample_size = if args.len() > 2 {
+            args[2].parse().unwrap_or(5000)
+        } else {
+            5000
+        };
+        return auto_scan_for_insiders(sample_size).await;
+    }
+
+    // If wallet address provided, run wallet analysis mode
+    if args.len() > 1 && args[1].starts_with("0x") {
+        let wallet_address = &args[1];
+        return analyze_wallet(wallet_address).await;
+    }
+
+    // Otherwise, run arbitrage scanner
+    println!("Polymarket Analysis Tools");
+    println!("=========================\n");
+    println!("Usage:");
+    println!("  cargo run --scan [sample_size]    - Auto-scan for insider wallets (default: 5000 trades)");
+    println!("  cargo run <wallet_address>        - Analyze a specific wallet");
+    println!("  cargo run                          - Run arbitrage scanner\n");
+    println!("Running arbitrage scanner...\n");
 
     // Create API client and scanner (reused across iterations)
     let client = PolymarketClient::new();
