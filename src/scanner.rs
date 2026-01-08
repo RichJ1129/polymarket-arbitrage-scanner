@@ -61,7 +61,7 @@ impl ArbitrageScanner {
 
 impl Default for ArbitrageScanner {
     fn default() -> Self {
-        // Default threshold of 0.99 to account for ~1% trading fees
-        Self::new(0.99)
+        // Default threshold of 0.995 to account for slippage and execution costs
+        Self::new(0.995)
     }
 }
