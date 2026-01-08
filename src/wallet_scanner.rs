@@ -215,13 +215,13 @@ impl WalletScanner {
                             println!("   Scans completed: {}", scan_count);
                             println!("   Wallets analyzed: {}", scanned_wallets.len());
                             println!("   Profitable wallets found: {}", all_profitable_wallets.len());
-                            println!("\n⏳ Waiting 30 seconds before next scan... (Press Ctrl+C to stop)\n");
+                            println!("\n⏳ Waiting 10 seconds before next scan... (Press Ctrl+C to stop)\n");
 
-                            sleep(Duration::from_secs(30)).await;
+                            sleep(Duration::from_secs(10)).await;
                         }
                         Err(e) => {
                             println!("❌ Error finding wallets: {}\n", e);
-                            sleep(Duration::from_secs(30)).await;
+                            sleep(Duration::from_secs(10)).await;
                         }
                     }
                 } => {}

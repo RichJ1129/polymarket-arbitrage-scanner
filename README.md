@@ -84,7 +84,7 @@ cargo run -- --scan 50000 200
    - ROI > 10% (meaningful profitability)
    - Net profit > $50 (filters out lucky small bets)
 6. Shows usernames when available
-7. In continuous mode: repeats every 30 seconds, avoiding duplicate analysis
+7. In continuous mode: repeats every 10 seconds, avoiding duplicate analysis
 
 **Output includes:**
 - Wallet address (and username if available)
@@ -213,7 +213,7 @@ PROFITABLE WALLETS (SORTED BY ROI)
    Wallets analyzed: 32
    Profitable wallets found: 3
 
-⏳ Waiting 30 seconds before next scan... (Press Ctrl+C to stop)
+⏳ Waiting 10 seconds before next scan... (Press Ctrl+C to stop)
 
 🔄 Scan iteration #2
 ================================================================================
@@ -284,7 +284,7 @@ You can find wallet addresses from:
 - 30-second timeout per request to prevent hanging
 - Typical market loading time: 30-60 seconds
 - Typical wallet analysis time: 5-10 seconds per wallet
-- Continuous mode: 30-second delay between scan iterations
+- Continuous mode: 10-second delay between scan iterations
 
 ## Tips for Finding Profitable Wallets
 
