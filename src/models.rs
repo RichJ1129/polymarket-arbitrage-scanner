@@ -100,6 +100,8 @@ pub struct Trade {
     pub outcome_index: usize,
     #[serde(default)]
     pub title: Option<String>,
+    #[serde(default)]
+    pub username: Option<String>,
 }
 
 /// Represents a wallet's position in a market

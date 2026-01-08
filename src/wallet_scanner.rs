@@ -55,16 +55,16 @@ impl WalletScanner {
         Ok(top_wallets)
     }
 
-    /// Scans multiple wallets and identifies suspicious ones
+    /// Scans multiple wallets and identifies profitable ones
     pub async fn scan_for_insiders(&self, wallet_addresses: &[String]) -> Result<()> {
-        println!("🎯 Scanning {} wallets for insider patterns...\n", wallet_addresses.len());
+        println!("🎯 Scanning {} wallets for profitable traders...\n", wallet_addresses.len());
 
         // Fetch all resolved markets once (to avoid re-fetching for each wallet)
         println!("📚 Loading resolved markets database...");
         let resolved_markets = self.client.fetch_resolved_markets().await?;
         println!("✓ Loaded {} resolved markets\n", resolved_markets.len());
 
-        let mut suspicious_wallets = Vec::new();
+        let mut profitable_wallets = Vec::new();
 
         for (index, wallet) in wallet_addresses.iter().enumerate() {
             println!("[{}/{}] Analyzing {}...", index + 1, wallet_addresses.len(), wallet);
@@ -76,6 +76,11 @@ impl WalletScanner {
                         continue;
                     }
 
+                    // Extract username from trades (if available)
+                    let username = trades.iter()
+                        .find_map(|t| t.username.as_ref())
+                        .cloned();
+
                     let performance = self.analyzer.analyze(&trades, &resolved_markets);
 
                     if performance.resolved_positions < 5 {
@@ -83,16 +88,21 @@ impl WalletScanner {
                         continue;
                     }
 
-                    let (is_suspicious, flags) = self.analyzer.is_suspicious(&performance);
+                    // Filter for profitable wallets only (positive ROI and net profit)
+                    if performance.roi > 0.0 && performance.net_profit > 0.0 {
+                        let (is_suspicious, flags) = self.analyzer.is_suspicious(&performance);
 
-                    if is_suspicious {
-                        println!("  ⚠️  SUSPICIOUS! Win rate: {:.1}%, ROI: {:.1}%", performance.win_rate, performance.roi);
-                        for flag in &flags {
-                            println!("     • {}", flag);
+                        if is_suspicious {
+                            println!("  💰 PROFITABLE + SUSPICIOUS! Win rate: {:.1}%, ROI: {:.1}%, Profit: ${:.2}",
+                                performance.win_rate, performance.roi, performance.net_profit);
+                        } else {
+                            println!("  💰 PROFITABLE! Win rate: {:.1}%, ROI: {:.1}%, Profit: ${:.2}",
+                                performance.win_rate, performance.roi, performance.net_profit);
                         }
-                        suspicious_wallets.push((wallet.clone(), performance, flags));
+                        profitable_wallets.push((wallet.clone(), username, performance, flags));
                     } else {
-                        println!("  ✓ Normal activity (Win rate: {:.1}%, ROI: {:.1}%)", performance.win_rate, performance.roi);
+                        println!("  ✗ Not profitable (Win rate: {:.1}%, ROI: {:.1}%, Profit: ${:.2})",
+                            performance.win_rate, performance.roi, performance.net_profit);
                     }
 
                     println!();
@@ -108,22 +118,34 @@ impl WalletScanner {
         println!("SCAN SUMMARY");
         println!("{}", "=".repeat(80));
         println!("\nScanned wallets: {}", wallet_addresses.len());
-        println!("Suspicious wallets found: {}\n", suspicious_wallets.len());
+        println!("Profitable wallets found: {}\n", profitable_wallets.len());
 
-        if !suspicious_wallets.is_empty() {
+        if !profitable_wallets.is_empty() {
+            // Sort by ROI descending
+            profitable_wallets.sort_by(|a, b| b.2.roi.partial_cmp(&a.2.roi).unwrap());
+
             println!("{}", "=".repeat(80));
-            println!("SUSPICIOUS WALLETS (POTENTIAL INSIDERS)");
+            println!("PROFITABLE WALLETS (SORTED BY ROI)");
             println!("{}", "=".repeat(80));
 
-            for (i, (wallet, perf, flags)) in suspicious_wallets.iter().enumerate() {
-                println!("\n{}. {}", i + 1, wallet);
+            for (i, (wallet, username, perf, flags)) in profitable_wallets.iter().enumerate() {
+                // Display wallet with username if available
+                if let Some(user) = username {
+                    println!("\n{}. {} (@{})", i + 1, wallet, user);
+                } else {
+                    println!("\n{}. {}", i + 1, wallet);
+                }
+
                 println!("   Win Rate: {:.1}% | ROI: {:.1}% | Resolved Positions: {}",
                     perf.win_rate, perf.roi, perf.resolved_positions);
                 println!("   Total Invested: ${:.2} | Net Profit: ${:.2}",
                     perf.total_invested, perf.net_profit);
-                println!("   Red Flags:");
-                for flag in flags {
-                    println!("     • {}", flag);
+
+                if !flags.is_empty() {
+                    println!("   ⚠️  Red Flags:");
+                    for flag in flags {
+                        println!("     • {}", flag);
+                    }
                 }
             }
 
