@@ -114,6 +114,7 @@ pub struct Position {
     pub net_shares: f64,
     pub avg_price: f64,
     pub total_invested: f64,
+    pub realized_profit: f64,  // Profit/loss from sells before resolution
     #[allow(dead_code)]
     pub market_title: String,
 }

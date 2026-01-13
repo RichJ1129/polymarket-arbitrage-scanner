@@ -41,6 +41,7 @@ impl WalletAnalyzer {
                 net_shares: 0.0,
                 avg_price: 0.0,
                 total_invested: 0.0,
+                realized_profit: 0.0,
                 market_title: trade.title.clone().unwrap_or_else(|| "Unknown".to_string()),
             });
 
@@ -58,13 +59,21 @@ impl WalletAnalyzer {
                     }
                 }
                 "SELL" => {
+                    // Calculate realized profit from this sell
+                    // Profit = (sell_price - avg_buy_price) * shares_sold
+                    let realized_pnl = (trade.price - position.avg_price) * trade.size;
+                    position.realized_profit += realized_pnl;
+
                     // Reduce position
                     position.net_shares -= trade.size;
-                    // On sell, we reduce the total invested proportionally
-                    if position.net_shares > 0.0 {
-                        position.total_invested -= trade.size * position.avg_price;
-                    } else {
+
+                    // Reduce total invested proportionally
+                    let cost_basis_sold = trade.size * position.avg_price;
+                    position.total_invested -= cost_basis_sold;
+
+                    if position.net_shares <= 0.001 {
                         // Position closed
+                        position.net_shares = 0.0;
                         position.total_invested = 0.0;
                         position.avg_price = 0.0;
                     }
@@ -73,10 +82,8 @@ impl WalletAnalyzer {
             }
         }
 
-        position_map
-            .into_values()
-            .filter(|p| p.net_shares.abs() > 0.001) // Filter out essentially closed positions
-            .collect()
+        // Return all positions, including closed ones with realized profit
+        position_map.into_values().collect()
     }
 
     /// Matches positions with resolved markets to determine wins/losses
@@ -101,8 +108,13 @@ impl WalletAnalyzer {
             if let Some(market) = market_map.get(&position.condition_id) {
                 if let Some(winning_index) = self.get_winning_outcome(market) {
                     let won = position.outcome_index == winning_index;
+
+                    // Payout from remaining shares (if position still open)
                     let payout = if won { position.net_shares } else { 0.0 };
-                    let profit = payout - position.total_invested;
+
+                    // Total profit = realized profit from sells + unrealized profit from remaining shares
+                    let unrealized_profit = payout - position.total_invested;
+                    let total_profit = position.realized_profit + unrealized_profit;
 
                     resolved_positions.push(ResolvedPosition {
                         condition_id: position.condition_id.clone(),
@@ -113,7 +125,7 @@ impl WalletAnalyzer {
                         avg_price: position.avg_price,
                         total_invested: position.total_invested,
                         payout,
-                        profit,
+                        profit: total_profit,  // Now includes realized + unrealized
                         won,
                     });
                 }
